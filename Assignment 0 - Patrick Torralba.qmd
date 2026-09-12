@@ -1,0 +1,153 @@
+---
+title: "Assignment 0 - Patrick Torralba"
+author: "Patrick Torralba"
+format: 
+  html:
+    theme: flatly
+    fontsize: 0.8em
+    code-fold: FALSE
+    code-tools: TRUE
+    code-copy: TRUE
+    toc: TRUE
+    toc-depth: 4
+    smooth-scroll: TRUE
+    embed-resources: TRUE
+    fig-align: center
+editor: visual
+---
+
+#Library
+```{r}
+#| label: library
+#| message: FALSE
+#| warning: FALSE
+#| echo: TRUE 
+
+library(tidyverse) #clean data
+
+```
+
+#Import Data
+```{r}
+#| label: import
+#| message: FALSE
+#| warning: FALSE
+#| echo: TRUE  
+
+chicks <- read_csv("chicks.csv")
+
+```
+
+# Structure Review
+```{r}
+#| label: structure-review
+#| message: FALSE
+#| warning: FALSE
+#| echo: TRUE  
+
+obs <- nrow(chicks)
+
+col <- ncol(chicks)
+
+chicks_grouped <- chicks |> 
+  group_by(Chick, Diet) |> 
+  summarize(
+    repeat_measurement = n())
+
+```
+
+** There were a total of 50 chicks studied and there were 12 repeated measurements per weight / time. There is missing data for some of the chicks. Some chicks like chick 16 only had 7 repeated measurements. **
+
+# Outliers
+
+To calculate the outliers we're going to do a boxplot.
+
+```{r}
+#| label: boxplot
+#| message: FALSE
+#| warning: FALSE
+#| echo: TRUE  
+
+ggplot(chicks, aes(y = weight)) +
+  geom_boxplot() +
+  labs(
+    y = "Weight",
+    title = "Chick Weight Distribution"
+  )
+
+boxplot.stats(chicks$weight)
+```
+
+** It looks like the chick weight outliers are chicks weighing over 318+ units.**
+
+
+# Chick Graph
+```{r}
+#| label: graph
+#| message: FALSE
+#| warning: FALSE
+#| echo: TRUE  
+
+chicks |> 
+  mutate(Diet = as.factor(Diet)) |> 
+ggplot(aes(x = Time, y = weight, color = Diet)) +
+  geom_point() +
+  labs(x = "Time (Day)",
+       y = "Weight",
+       title = "Chick Weight by Time and Diet")
+
+```
+
+# Chick Stats
+
+## Do Chicks' Weight Change over Time?
+
+I think I should calculate the p-value for a linear regression model.
+
+```{r}
+#| label: stats-chick-weight-over-time
+#| message: FALSE
+#| warning: FALSE
+#| echo: TRUE  
+
+# calculate Linear Regression model
+
+chick_model <- lm(weight ~ Time + Diet, data = chicks)
+summary(chick_model)
+
+
+## Convert to kable table for professionalism
+
+library(kableExtra)
+library(knitr)
+library(broom)
+
+chick_model_tidy <- tidy(chick_model, conf.int = TRUE)
+
+## Format table
+kable(
+  chick_model_tidy,
+  format = "html",
+  digits = 3,
+  caption = "Linear Regression Model: Chick Weight by Time and Diet",
+)
+
+
+```
+** According to my model, yes there is significant statistical evidence to say that chicks' weight does change ver the time of the study. **
+
+## Is there an effect of diet on weight change?
+
+To determine if there's an effect of diet on weight change, I will conduct a One-way ANOVA
+```{r}
+#| label: diet-weight-change-stats
+#| message: FALSE
+#| warning: FALSE
+#| echo: TRUE  
+
+ANOVA_model <- aov(weight ~ Diet, data = chicks)
+
+summary(ANOVA_model)
+```
+
+** Yes, there is statistically significant evidence to prove that diet affects chick weight. **
