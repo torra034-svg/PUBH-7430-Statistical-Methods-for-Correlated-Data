@@ -1,0 +1,217 @@
+---
+title: "Assignment 2 - Patrick Torralba"
+author: "Patrick Torralba"
+format: 
+  html:
+    theme: flatly
+    fontsize: 0.8em
+    code-fold: FALSE
+    code-tools: TRUE
+    code-copy: TRUE
+    toc: TRUE
+    toc-depth: 4
+    smooth-scroll: TRUE
+    embed-resources: TRUE
+    fig-align: center
+editor: visual
+---
+
+# Preliminary
+
+```{r}
+#| label: library-import
+#| message: FALSE
+#| warning: FALSE
+#| echo: TRUE  
+
+library(tidyverse)
+library(tidymodels)
+library(kableExtra)
+library(stats)
+library(broom)
+
+gum <- read_csv("gumR2026.csv") |> 
+  mutate(trtgroup = trtgroup |> 
+           factor() |> 
+           relevel(ref = "Placebo"))
+
+```
+
+# Question 1
+
+```{r}
+#| label: 1a
+#| message: FALSE
+#| warning: FALSE
+#| echo: TRUE  
+#| tbl-cap: "Main Effect Model: The effect of treatment group on three month mutans streptococci (MS) levels"
+#| tbl-cap-location: top
+
+
+gum_q1 <- gum |> 
+  filter(trtgroup != "NoGum")
+
+model_1a <-  glm(
+  mut3mos ~ trtgroup,
+  family = gaussian(link = "identity"),
+  data = gum_q1
+)
+
+summary(model_1a)
+
+kable(tidy(model_1a, conf.int = TRUE), digits = 3)
+
+```
+
+
+```{r}
+#| label: 1b
+#| message: FALSE
+#| warning: FALSE
+#| echo: TRUE  
+#| tbl-cap: "Interaction Effect Model: The effect of treatment group and baseline MS levels on three month MS levels"
+#| tbl-cap-location: top
+
+
+model_1b <-  glm(
+  mut3mos ~ mutpre * trtgroup,
+  family = gaussian(link = "identity"),
+  data = gum_q1
+)
+
+summary(model_1b)
+
+kable(tidy(model_1b, conf.int = TRUE), digits = 3)
+
+```
+
+
+```{r}
+#| label: 1c-iv
+#| message: FALSE
+#| warning: FALSE
+#| echo: TRUE  
+
+participant_1 <- tibble(
+  trtgroup = "Drug",
+  mutpre = 5.43
+)
+
+pred <- predict(
+  model_1b,
+  newdata = participant_1,
+  se.fit = TRUE
+)
+
+tibble(
+  estimate = pred$fit,
+  conf.low = pred$fit - 1.96 * pred$se.fit,
+  conf.high = pred$fit + 1.96 * pred$se.fit
+)
+```
+
+```{r}
+#| label: 1c-v
+#| message: FALSE
+#| warning: FALSE
+#| echo: TRUE 
+#| tbl-cap: "Joint Hypothesis Testing"
+#| tbl-cap-location: top
+
+## Joint Hypothesis Testing
+library(car)
+
+joint_hyp_test <- linearHypothesis(
+  model_1b,
+  c(
+    "trtgroupDrug = 0",
+    "mutpre:trtgroupDrug = 0"
+  )
+)
+
+joint_hyp_test
+
+kable(tidy(joint_hyp_test))
+
+```
+
+# Question 2
+Note to self:
+
+* MS levels > 5.5 = really bad dental outcomes 
+* Only interested in 1-month post-baseline 
+* need to compute odds-ratio of outcome associated with treatment
+```{r}
+#| label: 2a
+#| message: FALSE
+#| warning: FALSE
+#| echo: TRUE  
+#| tbl-cap: "Exponentiated Odds-Ratio of patient MS levels exceeding 5.5(cfu/ml)"
+#| tbl-cap-location: top
+
+
+gum_q2 <- gum_q1 |> 
+  mutate(
+    mut1mos_threshold = case_when(
+      mut1mos > 5.5 ~ 1,
+      mut1mos <= 5.5 ~ 0
+    )
+  )
+
+model_2 <- glm(
+  mut1mos_threshold ~ trtgroup,
+  family = binomial(link = "logit"),
+  data = gum_q2
+)
+
+summary(model_2)
+
+
+model_2 |> 
+  tidy(exponentiate = TRUE, conf.int = TRUE) |> 
+  kable(digits = 3)
+
+exponentiated_odds_ratio <- exp(model_2$coefficients[2])
+
+odds_percent <- 1 - exponentiated_odds_ratio
+
+odds_percent |> 
+  round(digits = 2)
+```
+
+
+Note to self:
+
+* Change to link = "log" to compute the relative risk
+
+```{r}
+#| label: 2b
+#| message: FALSE
+#| warning: FALSE
+#| echo: TRUE  
+#| tbl-cap: "Exponentiated Relative Risk Ratio of patient MS levels exceeding 5.5(cfu/ml)"
+#| tbl-cap-location: top
+
+
+model_2b <- glm(
+  mut1mos_threshold ~ trtgroup,
+  family = binomial(link = "log"),
+  data = gum_q2
+)
+
+summary(model_2b)
+
+
+model_2b |> 
+  tidy(exponentiate = TRUE, conf.int = TRUE) |> 
+  kable(digits = 3)
+
+model_2b_exponentiated_rr_ratio <- exp(model_2b$coefficients[2])
+
+model_2b_rr_percent <- 1 - model_2b_exponentiated_rr_ratio
+
+model_2b_rr_percent |> 
+  round(digits = 2)
+
+```
+

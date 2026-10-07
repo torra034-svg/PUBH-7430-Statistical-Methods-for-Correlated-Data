@@ -1,0 +1,93 @@
+---
+title: "Interpreting Model Output - Patrick Torralba"
+author: "Patrick Torralba"
+format: 
+  html:
+    theme: flatly
+    fontsize: 0.8em
+    code-fold: FALSE
+    code-tools: TRUE
+    code-copy: TRUE
+    toc: TRUE
+    toc-depth: 4
+    smooth-scroll: TRUE
+    embed-resources: TRUE
+    fig-align: center
+editor: visual
+---
+
+# Preliminary
+
+```{r}
+#| label: library-import
+#| message: FALSE
+#| warning: FALSE
+#| echo: TRUE  
+
+library(tidyverse)
+library(tidymodels)
+library(kableExtra)
+library(stats)
+library(broom)
+
+gum <- read_csv("gumR2026.csv") |> 
+  mutate(trtgroup = fct_relevel(trtgroup, "Placebo"))
+
+```
+
+
+# Questions
+
+```{r}
+#| label: q1
+#| message: FALSE
+#| warning: FALSE
+#| echo: TRUE
+
+## Continuous GLM
+
+model_1 <- glm(
+  mut3mos ~ trtgroup,
+  family = gaussian(link = "identity"),
+  data = gum
+) 
+
+summary(model_1)
+
+kable(tidy(model_1, conf.int = TRUE),
+      digits = 3)
+
+```
+
+## Answer 1
+The treatment effect estimate is -1.326 (cfu/ml) and it has a 95% confidence interval of (-1.96 to -0.690). This effect is statistically significant (p-value < 0.05). 
+
+The treatment effect has a slope of zero because the treatment effect doesnt depend on the baseline MS level.
+
+
+```{r}
+#| label: q2
+#| message: FALSE
+#| warning: FALSE
+#| echo: TRUE
+
+## Interaction Model
+
+model_2 <- glm(
+  mut3mos ~ trtgroup * mutpre,
+  family = gaussian(link = "identity"),
+  data = gum
+) 
+
+summary(model_2)
+
+kable(tidy(model_2, conf.int = TRUE),
+      digits = 3)
+
+
+```
+
+## Answer 2
+The treatment effect estimate is -0.004 (cfu/ml) with a 95% confidence interval of (-0.826 to 0.818).
+
+The mean model is E(Y) = B0 + B1(trtgroup) + B2(baseline) + B3(trtgroup x baseline)
