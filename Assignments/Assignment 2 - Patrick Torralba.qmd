@@ -37,7 +37,7 @@ gum <- read_csv("gumR2026.csv") |>
 
 ```
 
-# Question 1
+# Treatment effects, part 1
 
 ```{r}
 #| label: 1a
@@ -63,53 +63,71 @@ kable(tidy(model_1a, conf.int = TRUE), digits = 3)
 
 ```
 
-
 ```{r}
 #| label: 1b
+#| message: FALSE
+#| warning: FALSE
+#| echo: TRUE  
+#| tbl-cap: "Main Effect Model: The effect of treatment group and baseline MS levels on three month MS levels"
+#| tbl-cap-location: top
+
+
+model_1b <-  glm(
+  mut3mos ~ mutpre + trtgroup,
+  family = gaussian(link = "identity"),
+  data = gum_q1
+)
+
+tidy(model_1b, conf.int = TRUE)
+
+
+kable(tidy(model_1b, conf.int = TRUE), digits = 3)
+
+```
+
+## Interaction Model
+```{r}
+#| label: 1c-3
 #| message: FALSE
 #| warning: FALSE
 #| echo: TRUE  
 #| tbl-cap: "Interaction Effect Model: The effect of treatment group and baseline MS levels on three month MS levels"
 #| tbl-cap-location: top
 
-
-model_1b <-  glm(
-  mut3mos ~ mutpre * trtgroup,
+model_1c <-  glm(
+  mut3mos ~ trtgroup * mutpre,
   family = gaussian(link = "identity"),
   data = gum_q1
 )
 
-summary(model_1b)
+tidy(model_1c, conf.int = TRUE)
 
-kable(tidy(model_1b, conf.int = TRUE), digits = 3)
+
+kable(tidy(model_1c, conf.int = TRUE), digits = 3)
 
 ```
 
-
+## Participant with a Baseline MS level of 5.43
 ```{r}
 #| label: 1c-iv
 #| message: FALSE
 #| warning: FALSE
 #| echo: TRUE  
 
-participant_1 <- tibble(
-  trtgroup = "Drug",
-  mutpre = 5.43
-)
+library(doBy)
 
-pred <- predict(
-  model_1b,
-  newdata = participant_1,
-  se.fit = TRUE
-)
+participant_1 <- c(0, 1, 0, 5.43)
 
-tibble(
-  estimate = pred$fit,
-  conf.low = pred$fit - 1.96 * pred$se.fit,
-  conf.high = pred$fit + 1.96 * pred$se.fit
-)
+
+participant_1_results <-  esticon(model_1c, participant_1)
+
+participant_1_results
+
+tidy(participant_1_results, conf.int = TRUE)
 ```
 
+
+## Joint Hypothesis Testing
 ```{r}
 #| label: 1c-v
 #| message: FALSE
@@ -122,25 +140,29 @@ tibble(
 library(car)
 
 joint_hyp_test <- linearHypothesis(
-  model_1b,
+  model_1c,
   c(
     "trtgroupDrug = 0",
-    "mutpre:trtgroupDrug = 0"
+    "trtgroupDrug:mutpre = 0"
   )
 )
 
 joint_hyp_test
 
+tidy(joint_hyp_test)
+
 kable(tidy(joint_hyp_test))
 
 ```
 
-# Question 2
+# Treatment effects, part 2
+
 Note to self:
 
-* MS levels > 5.5 = really bad dental outcomes 
-* Only interested in 1-month post-baseline 
-* need to compute odds-ratio of outcome associated with treatment
+- MS levels \> 5.5 = really bad dental outcomes
+- Only interested in 1-month post-baseline
+- need to compute odds-ratio of outcome associated with treatment
+
 ```{r}
 #| label: 2a
 #| message: FALSE
@@ -179,11 +201,11 @@ odds_percent |>
   round(digits = 2)
 ```
 
-
 Note to self:
 
-* Change to link = "log" to compute the relative risk
+- Change to link = "log" to compute the relative risk
 
+## Exponentiated Relative Risk Ratio of patient MS levels exceeding 5.5(cfu/ml)
 ```{r}
 #| label: 2b
 #| message: FALSE
@@ -215,3 +237,191 @@ model_2b_rr_percent |>
 
 ```
 
+# Regression and log transformation
+
+## dmfs Histogram
+```{r}
+#| label: fig-3a-dmfs
+#| message: FALSE
+#| warning: FALSE
+#| echo: TRUE  
+#| fig-cap: "dmfs Histogram"
+#| fig-cap-location: top
+
+
+ggplot(gum, aes(x = dmfs)) +
+  geom_histogram()
+```
+
+
+## log(dmfs) Histogram
+```{r}
+#| label: fig-3a-log-dmfs
+#| message: FALSE
+#| warning: FALSE
+#| echo: TRUE  
+#| fig-cap: "log(dmfs) Histogram"
+#| fig-cap-location: top
+
+ggplot(gum, (aes(x = log(dmfs)))) +
+  geom_histogram()
+
+```
+
+
+## Statistical Models
+
+### Gaussian GLM with identity link
+```{r}
+#| label: tbl-3b-i
+#| message: FALSE
+#| warning: FALSE
+#| echo: TRUE  
+#| tbl-cap: "Gaussian GLM with identity link"
+#| tbl-cap-location: top
+
+gauss_glm_dmfs <- glm(
+  dmfs ~ age,
+  family = gaussian(link = "identity"),
+  data = gum
+)
+
+summary(gauss_glm_dmfs)
+
+gauss_glm_dmfs |> 
+  tidy(conf.int = TRUE) |> 
+  kable(digits = 3)
+
+```
+
+
+### Gaussian GLM with identity link and log(dmfs)
+```{r}
+#| label: tbl-3b-ii
+#| message: FALSE
+#| warning: FALSE
+#| echo: TRUE  
+#| tbl-cap: "Gaussian GLM with identity link and log(dmfs)"
+#| tbl-cap-location: top
+
+gauss_glm_log_dmfs <- glm(
+  log(dmfs) ~ age,
+  family = gaussian(link = "identity"),
+  data = gum,
+  subset = dmfs > 0
+)
+
+summary(gauss_glm_log_dmfs )
+
+gauss_glm_log_dmfs |> 
+  tidy(conf.int = TRUE, exponentiate = TRUE) |> 
+  kable(digits = 3)
+
+```
+
+
+### Gaussian GLM with log lin
+```{r}
+#| label: tbl-3b-iii
+#| message: FALSE
+#| warning: FALSE
+#| echo: TRUE  
+#| tbl-cap: "Gaussian GLM with log link"
+#| tbl-cap-location: top
+
+gauss_glm_link_log_dmfs <- glm(
+  dmfs + 0.001 ~ age,
+  family = gaussian(link = "log"),
+  data = gum
+)
+
+summary(gauss_glm_link_log_dmfs )
+
+gauss_glm_link_log_dmfs  |> 
+  tidy(conf.int = TRUE, exponentiate = TRUE) |> 
+  kable(digits = 3, caption = "Exponentiated")
+
+gauss_glm_link_log_dmfs  |> 
+  tidy(conf.int = TRUE) |> 
+  kable(digits = 3, caption = "Untransformed")
+
+
+```
+
+
+### Poisson GLM with log link
+```{r}
+#| label: tbl-3b-iv
+#| message: FALSE
+#| warning: FALSE
+#| echo: TRUE  
+#| tbl-cap: "Poisson GLM with log link"
+#| tbl-cap-location: top
+
+poisson_glm_link_log_dmfs <- glm(
+  dmfs ~ age,
+  family = poisson(link = "log"),
+  data = gum
+)
+
+summary(poisson_glm_link_log_dmfs)
+
+poisson_glm_link_log_dmfs |> 
+  tidy(conf.int = TRUE) |> 
+  kable(digits = 3)
+
+```
+
+
+### Combined Model Plots
+```{r}
+#| label: residuals-df
+#| message: FALSE
+#| warning: FALSE
+#| echo: TRUE  
+
+residuals_df <- bind_rows(
+  data.frame(
+    model = "Gaussian Identity",
+    fitted = fitted(gauss_glm_dmfs),
+    residual = rstandard(gauss_glm_dmfs, type = "pearson")
+  ),
+  data.frame(
+    model = "Gaussian Identity + log(DMFS)",
+    fitted = fitted(gauss_glm_log_dmfs),
+    residual = rstandard(gauss_glm_log_dmfs, type = "pearson")
+  ),
+  data.frame(
+    model = "Gaussian Log Link",
+    fitted = fitted(gauss_glm_link_log_dmfs),
+    residual = rstandard(gauss_glm_link_log_dmfs, type = "pearson")
+  ),
+  data.frame(
+    model = "Poisson Log Link",
+    fitted = fitted(poisson_glm_link_log_dmfs),
+    residual = rstandard(poisson_glm_link_log_dmfs, type = "pearson")
+  )
+)
+
+```
+
+
+### Pearson Residuals vs Statistical Models
+```{r}
+#| label: fig-residuals-plot-models
+#| message: FALSE
+#| warning: FALSE
+#| echo: TRUE  
+#| fig-cap: "Pearson Residuals vs Statistical Models"
+#| fig-cap-location: top
+
+ggplot(residuals_df, aes(x = fitted, y = residual)) +
+  geom_point() +
+  geom_hline(yintercept = 0, linetype = "dashed") +
+  facet_wrap(~ model, scales = "free_x") +
+  labs(
+    x = "Fitted values",
+    y = "Standardized Pearson residuals"
+  )
+
+```

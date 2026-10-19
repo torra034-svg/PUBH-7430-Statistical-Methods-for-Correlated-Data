@@ -31,10 +31,10 @@ library(stats)
 library(broom)
 
 gum <- read_csv("gumR2026.csv") |> 
-  mutate(trtgroup = fct_relevel(trtgroup, "Placebo"))
+  filter(trtgroup != "Placebo")
+
 
 ```
-
 
 # Questions
 
@@ -60,10 +60,10 @@ kable(tidy(model_1, conf.int = TRUE),
 ```
 
 ## Answer 1
-The treatment effect estimate is -1.326 (cfu/ml) and it has a 95% confidence interval of (-1.96 to -0.690). This effect is statistically significant (p-value < 0.05). 
+
+The treatment effect estimate is -1.326 (cfu/ml) and it has a 95% confidence interval of (-1.96 to -0.690). This effect is statistically significant (p-value \< 0.05).
 
 The treatment effect has a slope of zero because the treatment effect doesnt depend on the baseline MS level.
-
 
 ```{r}
 #| label: q2
@@ -88,6 +88,78 @@ kable(tidy(model_2, conf.int = TRUE),
 ```
 
 ## Answer 2
+
 The treatment effect estimate is -0.004 (cfu/ml) with a 95% confidence interval of (-0.826 to 0.818).
 
-The mean model is E(Y) = B0 + B1(trtgroup) + B2(baseline) + B3(trtgroup x baseline)
+The mean model is the following:
+
+$$
+E(Y) = \beta_0 + (\beta_1 \times \text{trtgroup} )+ (\beta_2 \times \text{mutpre} )+ (\beta_3 \times (\text{trtgroup} \times \text{baseline})
+)
+$$
+
+
+
+When we add in the coefficients the mean model becomes:
+
+
+$$
+E(Y) = -1.303 + (3.235 \times \text{trtgroup} )+ (0.858 \times \text{mutpre} )- (0.421 \times (\text{trtgroup} \times \text{baseline}))
+$$
+# Question 3
+```{r}
+#| label: tbl-patient-1
+#| message: FALSE
+#| warning: FALSE
+#| echo: TRUE  
+#| tbl-cap: "Treatment Effect for Patient 1"
+#| tbl-cap-location: top
+
+
+patient_1 <- tibble(mutpre = 5.29)
+
+pred_1 <- predict(
+  model_2,
+  new_data = patient_1,
+  se.fit = TRUE
+)
+
+patient_1_treatment_effect <- tibble(
+  estimate = pred_1$fit,
+  conf.low = pred_1$fit - 1.96 * pred_1$se.fit,
+  conf.high = pred_1$fit + 1.96 * pred_1$se.fit
+)
+
+kable(patient_1_treatment_effect, digits = 3)
+```
+
+
+```{r}
+#| label: tbl-patient-2
+#| message: FALSE
+#| warning: FALSE
+#| echo: TRUE  
+#| tbl-cap: "Treatment Effect for Patient 2"
+#| tbl-cap-location: top
+
+
+pred_2 <- predict(
+  model_2,
+  new_data = patient_2,
+  se.fit = TRUE
+)
+
+patient_2_treatment_effect <- tibble(
+  estimate = pred_2$fit,
+  conf.low = pred_2$fit - 1.96 * pred_2$se.fit,
+  conf.high = pred_2$fit + 1.96 * pred_2$se.fit
+)
+
+patient_2 <- tibble(mutpre = 0)
+
+
+kable(patient_2_treatment_effect, digits = 3)
+
+
+```
+
